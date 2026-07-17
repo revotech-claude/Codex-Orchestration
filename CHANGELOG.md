@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 — Unreleased
+
+- Accept any first-party claude.ai subscription (Pro, Max, Team, or Enterprise) in the Fable bridge instead of a Pro/Max allowlist; fail closed on missing, empty, or ambiguous subscription metadata, and expose only the sanitized tier label for diagnostics. Validated against a real Team seat whose `claude auth status` reports `subscriptionType: "team"`.
+- Add a bounded adversarial post-implementation review: the new `review_implementation` Advisor operation accepts one self-contained evidence packet after the root's direct verification, requires a first-line `IMPLEMENTATION_APPROVED` or `IMPLEMENTATION_REVISE` signal, and requires stable `IMPL-<number>` finding IDs (any markdown wrapping) in exactly one `## FINDINGS` section.
+- Gate completion behind reconciled implementation review in the managed policy and SKILL contract when a Fable Advisor is configured: bounded evidence packet, explicit reconciliation of every finding (accepted / rejected with evidence / deferred with owner), a three-round budget, halt-and-report on exhaustion, mandatory triggers for high-risk work, and per-task `skip`/`require` overrides. Direct evidence remains authoritative over advisor approval.
+
 ## 0.5.1 — Unreleased
 
 - Preserve explicit role labels exactly: a model supplied as `planner:` can never be reinterpreted as an Advisor, and Fable Planner uses only the Planner operations.

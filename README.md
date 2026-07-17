@@ -162,7 +162,7 @@ codex plugin marketplace upgrade codex-orchestration
 codex plugin add codex-orchestration@codex-orchestration
 ```
 
-Version **0.5.1 or newer** is required for reliable Planner assignment. It has a distinct release identity so Codex replaces the affected Advisor-only `0.5.0` cache instead of reusing it. After the two update commands, confirm `codex plugin list --json` reports `0.5.1` or newer, then start a new task; a task that already loaded the old skill cannot refresh its instructions in place.
+Version **0.6.0 or newer** is required for Team-subscription Fable seats and adversarial implementation review; 0.5.1 introduced reliable Planner assignment. It has a distinct release identity so Codex replaces the affected Advisor-only `0.5.0` cache instead of reusing it. After the two update commands, confirm `codex plugin list --json` reports `0.6.0` or newer, then start a new task; a task that already loaded the old skill cannot refresh its instructions in place.
 
 If the version stays old or `marketplaceSource.sourceType` is `local`, Codex is pointed at a local checkout rather than the GitHub marketplace. Run `/codex-orchestration disable` first if a saved policy is active, then remove the plugin and that marketplace registration, add `Cjbuilds/Codex-Orchestration` again, and reinstall. This does not delete the local source checkout.
 
