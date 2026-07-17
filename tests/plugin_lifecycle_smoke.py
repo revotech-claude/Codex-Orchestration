@@ -133,7 +133,7 @@ def probe_mcp_subprocess(script: Path, *, cwd: Path, env: dict[str, str]) -> Non
     }
     assert_equal(
         tool_names,
-        {"create_plan", "revise_plan", "review_plan", "status"},
+        {"create_plan", "revise_plan", "review_plan", "review_implementation", "status"},
         "installed Fable MCP tool list",
     )
 
