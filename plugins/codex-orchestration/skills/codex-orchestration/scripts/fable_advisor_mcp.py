@@ -142,13 +142,21 @@ def check_claude_auth(claude: Path | None = None) -> dict[str, str]:
         payload.get("loggedIn") is True
         and payload.get("authMethod") == "claude.ai"
         and payload.get("apiProvider") == "firstParty"
-        and subscription in {"pro", "max"}
+        and type(subscription) is str
+        and subscription.strip()
     ):
         raise AdvisorError(
-            "Claude Code must be logged in through a first-party Pro or Max account; "
+            "Claude Code must be logged in through a first-party claude.ai "
+            "subscription (for example Pro, Max, Team, or Enterprise); "
             "run `claude auth login` and try again."
         )
-    return {"auth_method": "claude.ai", "api_provider": "firstParty"}
+    return {
+        "auth_method": "claude.ai",
+        "api_provider": "firstParty",
+        # Sanitized diagnostic only: the commercial tier label, never an
+        # account identifier, email, organization, or credential.
+        "subscription_type": subscription.strip(),
+    }
 
 
 def _read_routing_state(home: Path | None = None) -> dict[str, Any]:

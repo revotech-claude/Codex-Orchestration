@@ -622,6 +622,7 @@ class FableAdvisorMcpTests(unittest.TestCase):
                         return_value={
                             "auth_method": "claude.ai",
                             "api_provider": "firstParty",
+                            "subscription_type": "team",
                         },
                     ),
                 ):
@@ -629,7 +630,12 @@ class FableAdvisorMcpTests(unittest.TestCase):
                 self.assertEqual(payload["configured_seats"], expected)
                 self.assertEqual(list(payload["seats"]), expected)
                 text = json.dumps(payload)
-                self.assertNotIn("subscription", text.lower())
+                # Sanitized tier label is allowed for diagnostics; account
+                # identifiers, org data, and credentials are not.
+                self.assertEqual(payload["subscription_type"], "team")
+                self.assertNotIn("email", text.lower())
+                self.assertNotIn("org", text.lower())
+                self.assertNotIn("token", text.lower())
                 self.assertNotIn("account_plan", text.lower())
                 for seat in expected:
                     self.assertEqual(payload["seats"][seat]["model"], FABLE.FABLE_MODEL)
@@ -685,6 +691,91 @@ class FableAdvisorMcpTests(unittest.TestCase):
             with self.subTest(effort=effort):
                 self.write_state(advisor=self.route(effort))
                 self.assertEqual(FABLE.load_fable_route(self.home)["effort"], effort)
+
+    def check_auth_with_payload(self, payload: object) -> dict[str, str]:
+        def fake_run(
+            command: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            assert command[-2:] == ["auth", "status"]
+            body = payload if isinstance(payload, str) else json.dumps(payload)
+            return self.completed(command, body)
+
+        with mock.patch.object(FABLE.subprocess, "run", side_effect=fake_run):
+            return FABLE.check_claude_auth(Path("/fake/claude"))
+
+    def test_auth_accepts_any_first_party_subscription_capability(self) -> None:
+        # The observed real-world Team value is exactly "team" (lowercase).
+        for subscription in ("pro", "max", "team", "enterprise"):
+            with self.subTest(subscription=subscription):
+                auth = self.check_auth_with_payload(
+                    {
+                        "loggedIn": True,
+                        "authMethod": "claude.ai",
+                        "apiProvider": "firstParty",
+                        "subscriptionType": subscription,
+                    }
+                )
+                self.assertEqual(
+                    auth,
+                    {
+                        "auth_method": "claude.ai",
+                        "api_provider": "firstParty",
+                        "subscription_type": subscription,
+                    },
+                )
+
+    def test_auth_never_returns_account_identifiers(self) -> None:
+        auth = self.check_auth_with_payload(
+            {
+                "loggedIn": True,
+                "authMethod": "claude.ai",
+                "apiProvider": "firstParty",
+                "subscriptionType": "team",
+                "email": "person@example.com",
+                "orgId": "1234",
+                "orgName": "Example",
+            }
+        )
+        self.assertEqual(
+            set(auth), {"auth_method", "api_provider", "subscription_type"}
+        )
+
+    def test_auth_fails_closed_for_unsupported_or_ambiguous_sessions(self) -> None:
+        valid = {
+            "loggedIn": True,
+            "authMethod": "claude.ai",
+            "apiProvider": "firstParty",
+            "subscriptionType": "team",
+        }
+        rejected: tuple[dict[str, object], ...] = (
+            {**valid, "loggedIn": False},
+            {**valid, "loggedIn": "true"},
+            {**valid, "authMethod": "apiKey"},
+            {**valid, "authMethod": "console"},
+            {**valid, "apiProvider": "bedrock"},
+            {**valid, "apiProvider": "vertex"},
+            {**valid, "apiProvider": "thirdParty"},
+            {**valid, "subscriptionType": ""},
+            {**valid, "subscriptionType": "   "},
+            {**valid, "subscriptionType": None},
+            {**valid, "subscriptionType": 5},
+            {**valid, "subscriptionType": ["team"]},
+            {k: v for k, v in valid.items() if k != "subscriptionType"},
+            {},
+        )
+        for payload in rejected:
+            with self.subTest(payload=payload):
+                with self.assertRaisesRegex(
+                    FABLE.AdvisorError,
+                    "first-party claude.ai subscription",
+                ):
+                    self.check_auth_with_payload(payload)
+
+    def test_auth_rejects_malformed_or_non_object_output(self) -> None:
+        for body in ("not-json", "[]", '"team"'):
+            with self.subTest(body=body):
+                with self.assertRaises(FABLE.AdvisorError):
+                    self.check_auth_with_payload(body)
 
 
 if __name__ == "__main__":

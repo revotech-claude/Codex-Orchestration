@@ -108,7 +108,7 @@ python3 <skill-dir>/scripts/configure_native_routing.py \
   --apply
 ```
 
-Add `--advisor-model` and `--advisor-effort` for a same-provider Codex advisor. For Claude Fable 5, use `--advisor-fable`; add `--advisor-effort low|medium|high|xhigh|max` when the user chooses one. Omitting Fable effort defaults to `high`, while user-facing `ultra` is normalized to Claude Code's `max`. The configurator verifies that the installed Claude Code CLI advertises the selected effective effort. It also requires Claude Code to be logged in through a first-party Pro or Max account, chooses an available Python 3.11+ MCP launcher, and performs only an auth/capability check during setup. It never extracts a token, writes a credential, or makes a model call during setup or status. Omission persists `advisor: none`.
+Add `--advisor-model` and `--advisor-effort` for a same-provider Codex advisor. For Claude Fable 5, use `--advisor-fable`; add `--advisor-effort low|medium|high|xhigh|max` when the user chooses one. Omitting Fable effort defaults to `high`, while user-facing `ultra` is normalized to Claude Code's `max`. The configurator verifies that the installed Claude Code CLI advertises the selected effective effort. It also requires Claude Code to be logged in through a first-party claude.ai subscription (Pro, Max, Team, or Enterprise), chooses an available Python 3.11+ MCP launcher, and performs only an auth/capability check during setup. It never extracts a token, writes a credential, or makes a model call during setup or status. Omission persists `advisor: none`.
 
 Add `--planner-model` and `--planner-effort` for a same-provider Planner. For Claude Fable 5, use `--planner-fable`; add `--planner-effort low|medium|high|xhigh|max` when the user chooses one. Planner omission persists no Planner route and means the root plans. A configured Planner and Advisor must not resolve to the same model or agent route; independent review is required.
 
@@ -172,7 +172,7 @@ In every user-facing status or result, use the exact name `Claude Fable 5`. Repo
 Prerequisites:
 
 - the official `claude` CLI is installed;
-- `claude auth status` reports a first-party Pro or Max login;
+- `claude auth status` reports a first-party subscription login (Pro, Max, Team, or Enterprise);
 - a Python 3.11+ launcher is available.
 
 The plugin packages three disabled MCP launcher variants for macOS, Linux, and Windows. Setup enables exactly one compatible variant through the plugin's namespaced config when either Fable seat is selected. At planning or review time the MCP server removes API-key and Bedrock/Vertex/Foundry override variables, re-checks first-party login, and invokes `claude -p --model claude-fable-5` with `--safe-mode`, no tools, no session persistence, prompt suggestions disabled, and JSON output. Each saved seat pins its model and effort; the root cannot replace them through tool arguments.

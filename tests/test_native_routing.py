@@ -1674,7 +1674,7 @@ class NativeRoutingTests(unittest.TestCase):
 
         self.assertEqual(status.returncode, 1)
         self.assertIn(
-            "must be logged in through a first-party Pro or Max account",
+            "must be logged in through a first-party claude.ai subscription",
             status.stdout,
         )
 
