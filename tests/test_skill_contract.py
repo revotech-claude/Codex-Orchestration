@@ -171,10 +171,37 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("`create_plan`", SKILL)
         self.assertIn("`revise_plan`", SKILL)
         self.assertIn("`review_plan`", SKILL)
+        self.assertIn("`review_implementation`", SKILL)
         self.assertIn("use the exact name `Claude Fable 5`", SKILL)
         self.assertIn("do not expose or restate Claude account-plan metadata", SKILL)
         self.assertIn("MCP requests do not carry caller identity", SKILL)
         self.assertIn("Never describe the caller boundary as engine-enforced", SKILL)
+
+    def test_implementation_review_is_gated_bounded_and_reconciled(self) -> None:
+        self.assertIn("## Adversarial implementation review", SKILL)
+        self.assertIn(
+            "only after it has integrated every handoff and run its own direct verification",
+            SKILL,
+        )
+        self.assertIn("`IMPLEMENTATION_APPROVED` or `IMPLEMENTATION_REVISE`", SKILL)
+        self.assertIn("stable `IMPL-<number>` finding IDs", SKILL)
+        self.assertIn(
+            "accepted (remediate, then re-run direct verification), rejected with "
+            "evidence, or deferred with a documented reason and owner",
+            SKILL,
+        )
+        self.assertIn("A rejected finding must never be silently ignored", SKILL)
+        self.assertIn(
+            "at most three implementation-review rounds unless the user explicitly "
+            "authorizes more",
+            SKILL,
+        )
+        self.assertIn("halt completion", SKILL)
+        self.assertIn("Advisor approval is not completion evidence", SKILL)
+        self.assertIn("evidence always overrides advisor guidance", SKILL)
+        self.assertIn("`skip implementation review`", SKILL)
+        self.assertIn("`require implementation review`", SKILL)
+        self.assertIn("Never include credentials, tokens, or account metadata", SKILL)
 
     def test_direct_routes_are_guarded_to_the_root_provider(self) -> None:
         self.assertIn("Direct model overrides keep the root's provider", SKILL)

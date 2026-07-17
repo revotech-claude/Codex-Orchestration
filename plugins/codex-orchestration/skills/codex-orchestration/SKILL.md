@@ -179,7 +179,7 @@ The plugin packages three disabled MCP launcher variants for macOS, Linux, and W
 
 Fable effort is configurable per setup. The default is `high`; supported Claude Code values are `low`, `medium`, `high`, `xhigh`, and `max`. Accept `ultra` as an alias for `max`, save the effective Claude Code value, and disclose the alias mapping in setup output. Existing saved `max` routes remain valid.
 
-The bridge exposes only bounded, read-only planning operations. `create_plan` accepts one self-contained packet and requires `PLAN_DRAFT`. `revise_plan` requires the task, canonical current plan, latest critique, and compact findings history, then requires `PLAN_REVISION` plus a findings ledger and revised plan. `review_plan` remains the Advisor operation and requires `PLAN_APPROVED` or `PLAN_REVISE`. Every call uses the same full saved-state validator as native status/disable, then requires runtime `modelUsage` to contain the pinned `claude-fable-5` primary plus only the bridge's explicit exact helper allowlist. Return every observed ID in `used_models`; an unknown additional or missing primary model makes the seat unavailable. Any auth, transport, state, format, or model-confirmation failure makes that seat unavailable; it never counts as approval. The bridge returns no account identifier or credential.
+The bridge exposes only bounded, read-only planning and review operations. `create_plan` accepts one self-contained packet and requires `PLAN_DRAFT`. `revise_plan` requires the task, canonical current plan, latest critique, and compact findings history, then requires `PLAN_REVISION` plus a findings ledger and revised plan. `review_plan` remains the Advisor operation and requires `PLAN_APPROVED` or `PLAN_REVISE`. `review_implementation` is the Advisor's post-implementation operation: it accepts one self-contained implementation-evidence packet, requires a first-line `IMPLEMENTATION_APPROVED` or `IMPLEMENTATION_REVISE` signal, and a revision must carry exactly one `## FINDINGS` section with stable `IMPL-<number>` finding IDs. Every call uses the same full saved-state validator as native status/disable, then requires runtime `modelUsage` to contain the pinned `claude-fable-5` primary plus only the bridge's explicit exact helper allowlist. Return every observed ID in `used_models`; an unknown additional or missing primary model makes the seat unavailable. Any auth, transport, state, format, or model-confirmation failure makes that seat unavailable; it never counts as approval. The bridge returns no account identifier or credential.
 
 The managed workflow reserves these MCP calls for the root Codex model. Current MCP requests do not carry caller identity, so the bridge cannot independently authenticate root versus child; caller isolation is instruction-enforced. The bridge still mechanically prevents tools, edits, permission prompts, and session persistence. Never describe the caller boundary as engine-enforced.
 
@@ -308,7 +308,7 @@ Do not persist a best-effort flag. An explicit task override applies only to tha
 
 Reject persistent setup or task-local activation when configured Planner and Advisor routes are identical: the same direct model ID, same custom-agent name, or Fable in both seats. Independent critique is the reason for the Advisor role.
 
-Fable Planner uses `create_plan` and `revise_plan`; Fable Advisor uses `review_plan`. These operations are seat-bound: never send a supplied Fable Planner to `review_plan`, and never use an Advisor route to create or revise the plan. The policy authorizes only the root to make these read-only calls; Executors must never use or direct them.
+Fable Planner uses `create_plan` and `revise_plan`; Fable Advisor uses `review_plan` and `review_implementation`. These operations are seat-bound: never send a supplied Fable Planner to `review_plan` or `review_implementation`, and never use an Advisor route to create or revise the plan. The policy authorizes only the root to make these read-only calls; Executors must never use or direct them.
 
 ## Executor handoff
 
@@ -324,6 +324,18 @@ Give each executor one bounded packet with:
 Require it to preserve unrelated work, stay inside the slice, avoid the advisor, avoid descendants, and report blockers rather than guess. The handoff includes status, work completed, files or evidence, checks run, and remaining risks.
 
 Parallelize only genuinely independent slices with non-overlapping write ownership. The root inspects, integrates, and verifies every handoff. Executor completion is never final acceptance.
+
+## Adversarial implementation review
+
+When a Fable Advisor is configured, the root sends completed work to `review_implementation` only after it has integrated every handoff and run its own direct verification. Direct evidence comes first; the review examines that evidence, it never substitutes for it. Advisor approval is not completion evidence on its own, and evidence always overrides advisor guidance: reconcile conflicts openly instead of deferring to either side.
+
+Build one bounded, self-contained packet: the original objective, the approved plan and its version, accepted and rejected planning findings, the material diff or a structured diff summary, changed files, test/build/lint/type-check results, relevant runtime checks, known limitations, residual risks, rollback information, and any deviations from the approved plan. Never include credentials, tokens, or account metadata.
+
+Require a first-line `IMPLEMENTATION_APPROVED` or `IMPLEMENTATION_REVISE` signal. For a revision, the root must reconcile every `IMPL-<number>` finding explicitly as accepted (remediate, then re-run direct verification), rejected with evidence, or deferred with a documented reason and owner. A rejected finding must never be silently ignored. After remediation, send the updated packet and compact cumulative findings ledger to a fresh call; ask it to confirm or contest prior dispositions rather than repeat accepted findings.
+
+Run at most three implementation-review rounds unless the user explicitly authorizes more. If the final round still returns `IMPLEMENTATION_REVISE`, halt completion: report the unresolved findings, the reconciliation ledger, and the user's choices to override, re-scope, or change a route. Never label the work complete or approved in that state. An unavailable Advisor at this stage is disclosed and the result labeled `NOT_ADVISOR_APPROVED` under the same best-effort rules as plan review.
+
+Implementation review is mandatory by default for work touching authentication, credentials, secrets, security boundaries, migrations, persistent state, databases, deployments, production configuration, destructive or irreversible changes, workflows or state machines, concurrency, broad architecture changes, unclear acceptance criteria, or multi-agent changes with overlapping ownership. The user may say `skip implementation review` or `require implementation review` for the current task; low-risk work outside the mandatory list may skip it with a one-line disclosure. Do not persist a skip.
 
 ## Task-local and older-client fallback
 
