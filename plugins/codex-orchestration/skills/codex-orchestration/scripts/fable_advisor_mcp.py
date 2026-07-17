@@ -436,7 +436,9 @@ def review_plan(packet: str) -> dict[str, Any]:
     }
 
 
-_IMPL_FINDING_ID_RE = re.compile(r"^IMPL-\d+", flags=re.MULTILINE)
+# Live Fable output legitimately varies in markup ("IMPL-001", "### IMPL-001",
+# "**IMPL-001**"); require the stable ID itself, not one exact line format.
+_IMPL_FINDING_ID_RE = re.compile(r"\bIMPL-\d+\b")
 
 
 def _validate_implementation_findings(response: str) -> None:

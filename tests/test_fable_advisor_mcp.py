@@ -824,6 +824,16 @@ class FableAdvisorMcpTests(unittest.TestCase):
         self.assertEqual(result["decision"], "IMPLEMENTATION_REVISE")
         self.assertIn("IMPL-001", result["review"])
 
+        # Live Fable output wraps IDs in markdown; accept any stable-ID markup.
+        for markup in ("### IMPL-002 — weak tests", "- **IMPL-003**: no rollback"):
+            with self.subTest(markup=markup):
+                result, _ = self.invoke_with_results(
+                    FABLE.review_implementation,
+                    "packet",
+                    model_response=f"IMPLEMENTATION_REVISE\n\n## FINDINGS\n{markup}\nSeverity: high",
+                )
+                self.assertEqual(result["decision"], "IMPLEMENTATION_REVISE")
+
         failures = (
             "IMPLEMENTATION_REVISE\nno findings section",
             "IMPLEMENTATION_REVISE\n\n## FINDINGS\n",
