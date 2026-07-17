@@ -983,6 +983,27 @@ def build_policy(
             else "No Advisor is configured. Do not create an Advisor review step."
         )
     )
+    implementation_review_mode = (
+        "\nAfter Executor handoffs are integrated and the root's own direct "
+        "verification passes, non-trivial or high-risk work receives one "
+        "adversarial implementation review from the Advisor before completion. "
+        "The root sends a bounded, self-contained evidence packet: objective, "
+        "approved plan and version, planning-finding dispositions, diff or "
+        "structured diff summary, changed files, verification results, known "
+        "limitations, residual risks, rollback information, and deviations. "
+        "IMPLEMENTATION_APPROVED permits completion. IMPLEMENTATION_REVISE "
+        "requires the root to reconcile every IMPL finding as accepted "
+        "(remediate, then re-run direct verification), rejected with evidence, "
+        "or deferred with a documented reason and owner; a rejected finding is "
+        "never silently ignored. Run at most three implementation-review rounds "
+        "unless the user explicitly authorizes more; an exhausted budget halts "
+        "completion and reports the unresolved findings instead of claiming "
+        "success. Advisor approval never replaces direct evidence, and evidence "
+        "overrides advisor guidance. The user may say skip implementation review "
+        "or require implementation review for the current task only.\n"
+        if advisor is not None and advisor["kind"] == "fable"
+        else ""
+    )
     mode = f"""{MANAGED_MARKER}
 This adds model routing to Codex's existing multi-agent flow; it is not a second scheduler.
 
@@ -997,7 +1018,7 @@ The root owns the plan version, cumulative findings ledger, review count, valida
 On PLAN_REVISE, record the latest finding IDs before revision. After the Planner returns, validate and merge each INCORPORATED or reasoned REJECTED disposition into the cumulative ledger before another Advisor call. A round-five PLAN_REVISE halts before Executor and produces a non-approval artifact containing the latest plan and version, full ledger, latest findings, and choices available to the user. It must not claim approval. Any required Planner or Advisor route failure also halts before Executor. Only an explicit current-task best-effort instruction changes failure handling: Planner failure permits the root to take over planning for the remaining rounds; Advisor failure may proceed only with the result labeled NOT_ADVISOR_APPROVED. No best-effort setting is persisted.
 
 When executor delegation materially improves speed, cost, quality, or context isolation, use only the configured executor route. Give each executor one bounded, self-contained packet with objective, relevant facts, constraints, owned files or read-only scope, dependencies, acceptance criteria, verification, and handoff format. Inspect every handoff, integrate it, and run final checks yourself.
-
+{implementation_review_mode}
 Explicit user instructions win, including no-subagents and task-local seat overrides. Persistent and task-local Planner and Advisor routes must remain distinct: reject the same direct model ID, the same custom-agent name, or Fable in both seats. This policy does not create or change a Goal, weaken approvals, alter permissions, or force a worker count.
 
 Planner and Advisor are policy-isolated, root-directed seats: they cannot contact each other or Executors, spawn descendants, edit files, execute work, or release Executor. They return only to the root. Fable MCP requests do not carry caller identity, so caller isolation is instruction-enforced even though the bridge itself disables tools and persistence. If you are a spawned child, stay inside the supplied packet, report only to the root, never call planning tools, and never spawn descendants. An Executor never redesigns the root plan or contacts Planner or Advisor.
@@ -1026,7 +1047,13 @@ Planner and Advisor are policy-isolated, root-directed seats: they cannot contac
             f"{json.dumps(advisor['server'])} with the round's self-contained packet. "
             "This is a read-only root tool call, not a spawned child. Require "
             "PLAN_APPROVED or PLAN_REVISE and fail closed unless the user explicitly "
-            "made Advisor failure best-effort for the current task."
+            "made Advisor failure best-effort for the current task. After "
+            "implementation and the root's own direct verification, call "
+            "`review_implementation` from that server with one bounded evidence "
+            "packet. Require IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE, "
+            "reconcile every IMPL finding, and run at most three "
+            "implementation-review rounds unless the user explicitly authorizes "
+            "more."
         )
     elif advisor is not None:
         advisor_hint = (

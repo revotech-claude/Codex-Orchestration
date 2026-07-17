@@ -373,6 +373,40 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn('model = "gpt-5.6-sol"', usage)
         self.assertGreaterEqual(usage.count('fork_turns = "none"'), 3)
         self.assertIn('Never use fork_turns = "all"', usage)
+        # Implementation review is a Fable-bridge operation; a direct-model
+        # advisor route has no such tool and must not be told to call one.
+        self.assertNotIn("IMPLEMENTATION_APPROVED", mode)
+        self.assertNotIn("review_implementation", usage)
+
+    def test_fable_advisor_policy_gates_completion_on_implementation_review(
+        self,
+    ) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "xhigh"}
+        advisor = {
+            "kind": "fable",
+            "model": "claude-fable-5",
+            "effort": "high",
+            "server": "fable-advisor-python3",
+        }
+        mode, usage = NATIVE.build_policy(executor, None, advisor)
+
+        self.assertIn("adversarial implementation review", mode)
+        self.assertIn("IMPLEMENTATION_APPROVED permits completion", mode)
+        self.assertIn(
+            "at most three implementation-review rounds unless the user "
+            "explicitly authorizes more",
+            mode,
+        )
+        self.assertIn("a rejected finding is never silently ignored", mode)
+        self.assertIn("Advisor approval never replaces direct evidence", mode)
+        self.assertIn("skip implementation review", mode)
+        self.assertLess(
+            mode.index("When executor delegation"),
+            mode.index("adversarial implementation review"),
+        )
+        self.assertIn("call `review_implementation` from that server", usage)
+        self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
+        self.assertIn("reconcile every IMPL finding", usage)
         self.assertIn("task-local Planner and Advisor must still be distinct", usage)
         self.assertIn("same direct model ID", usage)
         self.assertIn("Fable in both seats", usage)
