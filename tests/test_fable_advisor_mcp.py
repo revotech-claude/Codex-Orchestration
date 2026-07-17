@@ -585,7 +585,13 @@ class FableAdvisorMcpTests(unittest.TestCase):
         tools = listed["result"]["tools"]
         self.assertEqual(
             [tool["name"] for tool in tools],
-            ["create_plan", "revise_plan", "review_plan", "status"],
+            [
+                "create_plan",
+                "revise_plan",
+                "review_plan",
+                "review_implementation",
+                "status",
+            ],
         )
         for tool in tools:
             annotations = tool["annotations"]
@@ -600,6 +606,11 @@ class FableAdvisorMcpTests(unittest.TestCase):
             ["task", "current_plan", "critique", "history"],
         )
         self.assertEqual(tools[2]["inputSchema"]["required"], ["packet"])
+        self.assertEqual(tools[3]["inputSchema"]["required"], ["packet"])
+        self.assertEqual(
+            tools[3]["inputSchema"]["properties"]["packet"]["maxLength"],
+            FABLE.MAX_INPUT_CHARS,
+        )
         for name in ("task", "current_plan", "critique", "history"):
             self.assertEqual(
                 tools[1]["inputSchema"]["properties"][name]["maxLength"],
@@ -770,6 +781,144 @@ class FableAdvisorMcpTests(unittest.TestCase):
                     "first-party claude.ai subscription",
                 ):
                     self.check_auth_with_payload(payload)
+
+    def test_review_implementation_approval_is_advisor_seat_bound_and_pinned(
+        self,
+    ) -> None:
+        self.write_state(advisor=self.route("high"))
+        result, calls = self.invoke_with_results(
+            FABLE.review_implementation,
+            "objective, plan v3, diff, evidence, risks, rollback",
+            model_response="IMPLEMENTATION_APPROVED\nEvidence supports the objective.",
+        )
+        self.assertEqual(result["decision"], "IMPLEMENTATION_APPROVED")
+        self.assertEqual(result["model"], FABLE.FABLE_MODEL)
+        self.assertEqual(result["effort"], "high")
+        self.assertEqual(result["used_models"], ["claude-fable-5"])
+        self.assertNotIn("subscription", json.dumps(result).lower())
+        model_command, model_kwargs = calls[-1]
+        self.assertEqual(model_command[0], "/fake/claude")
+        self.assertIn("--safe-mode", model_command)
+        self.assertIn("--no-session-persistence", model_command)
+        tools_index = model_command.index("--tools")
+        self.assertEqual(model_command[tools_index + 1], "")
+        system_index = model_command.index("--system-prompt")
+        self.assertEqual(
+            model_command[system_index + 1],
+            FABLE.IMPLEMENTATION_REVIEW_SYSTEM_PROMPT,
+        )
+        for variable in FABLE.SENSITIVE_ENV:
+            self.assertNotIn(variable, model_kwargs["env"])
+
+    def test_review_implementation_revision_requires_stable_findings(self) -> None:
+        self.write_state(advisor=self.route("high"))
+        revise = (
+            "IMPLEMENTATION_REVISE\n\n## FINDINGS\nIMPL-001\nSeverity: high\n"
+            "Evidence: tests skip the auth path\nRisk: silent regression\n"
+            "Required correction: add the missing test\n"
+            "Required verification: run the auth suite"
+        )
+        result, _ = self.invoke_with_results(
+            FABLE.review_implementation, "packet", model_response=revise
+        )
+        self.assertEqual(result["decision"], "IMPLEMENTATION_REVISE")
+        self.assertIn("IMPL-001", result["review"])
+
+        failures = (
+            "IMPLEMENTATION_REVISE\nno findings section",
+            "IMPLEMENTATION_REVISE\n\n## FINDINGS\n",
+            "IMPLEMENTATION_REVISE\n\n## FINDINGS\nno stable ids here",
+            "IMPLEMENTATION_REVISE\n\n## FINDINGS\nIMPL-1 ok\n## FINDINGS\nIMPL-2",
+            "MAYBE_FINE\nIMPL-001",
+            "",
+        )
+        for response in failures:
+            with self.subTest(response=response[:40]):
+                with self.assertRaises(FABLE.AdvisorError):
+                    self.invoke_with_results(
+                        FABLE.review_implementation,
+                        "packet",
+                        model_response=response,
+                    )
+
+    def test_review_implementation_fails_closed_before_and_after_subprocess(
+        self,
+    ) -> None:
+        self.write_state(advisor=self.route("high"))
+        with mock.patch.dict(os.environ, {"CODEX_HOME": str(self.home)}):
+            with self.assertRaisesRegex(FABLE.AdvisorError, "combined limit"):
+                FABLE.review_implementation("x" * (FABLE.MAX_INPUT_CHARS + 1))
+            with self.assertRaisesRegex(FABLE.AdvisorError, "non-empty string"):
+                FABLE.review_implementation("   ")
+        with self.assertRaisesRegex(
+            FABLE.AdvisorError, "allowed Fable runtime policy"
+        ):
+            self.invoke_with_results(
+                FABLE.review_implementation,
+                "packet",
+                model_response="IMPLEMENTATION_APPROVED\nok",
+                model_usage={
+                    "claude-fable-5": {},
+                    "claude-sonnet-5": {},
+                },
+            )
+        # Advisor seat is required: a Planner-only state must not authorize it.
+        self.write_state(schema=3, planner=self.route("high"), advisor=None)
+        with mock.patch.dict(os.environ, {"CODEX_HOME": str(self.home)}):
+            with self.assertRaisesRegex(
+                FABLE.AdvisorError, "not the configured advisor"
+            ):
+                FABLE.review_implementation("packet")
+
+    def test_review_implementation_tool_dispatch_and_argument_validation(
+        self,
+    ) -> None:
+        self.write_state(advisor=self.route("high"))
+
+        def fake_run(
+            command: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if command[-2:] == ["auth", "status"]:
+                return self.auth_result()
+            return self.model_result("IMPLEMENTATION_APPROVED\nok")
+
+        with (
+            mock.patch.dict(os.environ, {"CODEX_HOME": str(self.home)}),
+            mock.patch.object(
+                FABLE, "resolve_claude", return_value=Path("/fake/claude")
+            ),
+            mock.patch.object(FABLE.subprocess, "run", side_effect=fake_run),
+        ):
+            ok = FABLE.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 7,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "review_implementation",
+                        "arguments": {"packet": "evidence packet"},
+                    },
+                }
+            )
+            payload = json.loads(ok["result"]["content"][0]["text"])
+            self.assertFalse(ok["result"]["isError"])
+            self.assertEqual(payload["decision"], "IMPLEMENTATION_APPROVED")
+
+            extra = FABLE.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 8,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "review_implementation",
+                        "arguments": {"packet": "p", "rounds": 4},
+                    },
+                }
+            )
+            self.assertTrue(extra["result"]["isError"])
+            self.assertIn(
+                "Unexpected tool argument", extra["result"]["content"][0]["text"]
+            )
 
     def test_auth_rejects_malformed_or_non_object_output(self) -> None:
         for body in ("not-json", "[]", '"team"'):

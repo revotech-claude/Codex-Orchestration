@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import shutil
 import subprocess
@@ -68,6 +69,12 @@ For every finding in the latest critique, include its stable Advisor finding ID 
 Provide the complete revised plan, clearly identifying its source plan version and revised version.
 
 Both sections must be non-empty. Your first non-empty line must be exactly PLAN_REVISION. The root orchestrator, not you, validates finding coverage and plan-version semantics. Report only to the root orchestrator."""
+
+IMPLEMENTATION_REVIEW_SYSTEM_PROMPT = """You are Claude Fable 5 acting only as an adversarial implementation reviewer for Codex's root orchestrator.
+Review the supplied self-contained packet: the original objective, the approved plan and its version, accepted and rejected planning findings, the material diff or structured diff summary, changed files, test and verification evidence, known limitations, residual risks, rollback information, and any deviations from the approved plan. Judge whether the implementation actually satisfies the objective and follows the approved plan. Hunt for correctness defects, security defects, authentication and credential mistakes, incomplete error handling, concurrency or worktree conflicts, compatibility regressions, missing tests, weak or proxy verification, claims not supported by evidence, dangerous rollback assumptions, and unnecessary scope expansion. Passing tests alone are not sufficient evidence, and your own confidence is never evidence. Do not edit files, call tools, spawn agents, execute commands, contact Executors, or attempt implementation.
+
+Your first non-empty line must be exactly IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE.
+Use IMPLEMENTATION_APPROVED only when no material defect or evidence gap remains. For IMPLEMENTATION_REVISE, return a section headed exactly `## FINDINGS` and give every material finding a stable unique ID of the form IMPL-<number>, each with Severity, Evidence, Risk, Required correction, and Required verification. On later rounds, preserve IDs from the supplied cumulative ledger. Ignore stylistic preferences unless they create material risk. Report only to the root orchestrator."""
 
 # Backward-compatible public constant for existing importers.
 SYSTEM_PROMPT = ADVISOR_SYSTEM_PROMPT
@@ -429,6 +436,61 @@ def review_plan(packet: str) -> dict[str, Any]:
     }
 
 
+_IMPL_FINDING_ID_RE = re.compile(r"^IMPL-\d+", flags=re.MULTILINE)
+
+
+def _validate_implementation_findings(response: str) -> None:
+    """Require exactly one non-empty FINDINGS section with stable IMPL IDs."""
+
+    lines = response.splitlines()
+    positions = [
+        i for i, line in enumerate(lines) if line.strip() == "## FINDINGS"
+    ]
+    if len(positions) != 1:
+        raise AdvisorError(
+            "Claude Fable 5 implementation review must contain exactly one "
+            "FINDINGS section when requesting revision."
+        )
+    body = "\n".join(lines[positions[0] + 1 :]).strip()
+    if not body:
+        raise AdvisorError(
+            "Claude Fable 5 implementation review has an empty FINDINGS section."
+        )
+    if _IMPL_FINDING_ID_RE.search(body) is None:
+        raise AdvisorError(
+            "Claude Fable 5 implementation review must assign stable "
+            "IMPL-<number> finding IDs."
+        )
+
+
+def review_implementation(packet: str) -> dict[str, Any]:
+    """Adversarially review completed implementation and verification evidence.
+
+    The root orchestrator calls this only after implementation and its own
+    direct verification. The packet must be self-contained: objective,
+    approved plan and version, planning-finding dispositions, diff or
+    structured diff summary, changed files, verification evidence, known
+    limitations, residual risks, rollback information, and deviations. Round
+    budgeting and finding reconciliation belong to the root, not the bridge.
+    """
+
+    values = _validate_inputs("implementation review", packet=packet)
+    signal, response, route, auth, used_models = _invoke_fable(
+        operation="implementation review",
+        seat="advisor",
+        prompt=values["packet"],
+        system_prompt=IMPLEMENTATION_REVIEW_SYSTEM_PROMPT,
+        allowed_signals={"IMPLEMENTATION_APPROVED", "IMPLEMENTATION_REVISE"},
+    )
+    if signal == "IMPLEMENTATION_REVISE":
+        _validate_implementation_findings(response)
+    return {
+        "decision": signal,
+        "review": response,
+        **_base_result(route=route, auth=auth, used_models=used_models),
+    }
+
+
 def _configured_fable_seats() -> dict[str, dict[str, str]]:
     payload = _read_routing_state()
     routes: dict[str, dict[str, str]] = {}
@@ -516,6 +578,32 @@ def tool_definitions() -> list[dict[str, Any]]:
             "annotations": annotations,
         },
         {
+            "name": "review_implementation",
+            "title": "Review a completed implementation with Claude Fable 5",
+            "description": (
+                "Adversarially review one self-contained implementation-evidence "
+                "packet with the configured Fable Advisor, only after the root's "
+                "direct verification."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "packet": {
+                        **string_property,
+                        "description": (
+                            "Objective, approved plan and version, planning-finding "
+                            "dispositions, diff or structured diff summary, changed "
+                            "files, verification evidence, known limitations, residual "
+                            "risks, rollback information, and deviations."
+                        ),
+                    }
+                },
+                "required": ["packet"],
+                "additionalProperties": False,
+            },
+            "annotations": annotations,
+        },
+        {
             "name": "status",
             "title": "Check Claude Fable 5 Planner and Advisor status",
             "description": "Check configured Fable seats and first-party login without a model call.",
@@ -550,7 +638,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
         result = {
             "protocolVersion": "2025-06-18",
             "capabilities": {"tools": {"listChanged": False}},
-            "serverInfo": {"name": "codex-orchestration-fable-advisor", "version": "2.0.0"},
+            "serverInfo": {"name": "codex-orchestration-fable-advisor", "version": "2.1.0"},
         }
     elif method == "ping":
         result = {}
@@ -577,6 +665,9 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
             elif name == "review_plan":
                 args = _tool_arguments(arguments, {"packet"})
                 result = _tool_result(review_plan(args.get("packet")))
+            elif name == "review_implementation":
+                args = _tool_arguments(arguments, {"packet"})
+                result = _tool_result(review_implementation(args.get("packet")))
             elif name == "status":
                 _tool_arguments(arguments, set())
                 result = _tool_result(status())
