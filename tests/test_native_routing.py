@@ -381,6 +381,8 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn('Never use fork_turns = "all"', usage)
         self.assertIn("IMPLEMENTATION_APPROVED", mode)
         self.assertIn("same fresh Advisor route", usage)
+        self.assertIn("When implementation review is required by the risk policy", usage)
+        self.assertIn("not explicitly skipped for the current task", usage)
         self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
         self.assertIn("reconcile every IMPL finding", usage)
 
@@ -416,6 +418,7 @@ class NativeRoutingTests(unittest.TestCase):
             mode.index("adversarial implementation review"),
         )
         self.assertIn("call `review_implementation` from that server", usage)
+        self.assertIn("When implementation review is required by the risk policy", usage)
         self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
         self.assertIn("reconcile every IMPL finding", usage)
         self.assertIn("task-local Planner and Advisor must still be distinct", usage)
