@@ -1041,7 +1041,7 @@ def build_policy(
         "success. Advisor approval never replaces direct evidence, and evidence "
         "overrides advisor guidance. The user may say skip implementation review "
         "or require implementation review for the current task only.\n"
-        if advisor is not None and advisor["kind"] == "fable"
+        if advisor is not None
         else ""
     )
     mode = f"""{MANAGED_MARKER}
@@ -1103,7 +1103,12 @@ Planner and Advisor are policy-isolated, root-directed seats: they cannot contac
         advisor_hint = (
             "For an advisor review, call this tool with "
             f"{_spawn_route(advisor)}, fork_turns = \"none\". Send the complete "
-            "review packet and require PLAN_APPROVED or PLAN_REVISE."
+            "review packet and require PLAN_APPROVED or PLAN_REVISE. After "
+            "implementation and the root's own direct verification, call the same "
+            "fresh Advisor route with one bounded implementation-evidence packet. "
+            "Require IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE, reconcile "
+            "every IMPL finding, and run at most three implementation-review rounds "
+            "unless the user explicitly authorizes more."
         )
     else:
         advisor_hint = "No advisor route is configured."

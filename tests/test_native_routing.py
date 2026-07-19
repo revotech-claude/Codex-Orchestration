@@ -379,10 +379,10 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn('model = "gpt-5.6-sol"', usage)
         self.assertGreaterEqual(usage.count('fork_turns = "none"'), 3)
         self.assertIn('Never use fork_turns = "all"', usage)
-        # Implementation review is a Fable-bridge operation; a direct-model
-        # advisor route has no such tool and must not be told to call one.
-        self.assertNotIn("IMPLEMENTATION_APPROVED", mode)
-        self.assertNotIn("review_implementation", usage)
+        self.assertIn("IMPLEMENTATION_APPROVED", mode)
+        self.assertIn("same fresh Advisor route", usage)
+        self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
+        self.assertIn("reconcile every IMPL finding", usage)
 
     def test_fable_advisor_policy_gates_completion_on_implementation_review(
         self,
