@@ -353,7 +353,11 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("Low risk is limited to mechanical", mode)
         self.assertIn("Medium risk covers bounded behavioral work", mode)
         self.assertIn("High risk includes authentication", mode)
-        self.assertIn("never lower a tier merely to save time or tokens", mode)
+        self.assertIn("Never lower a tier merely to save time or tokens", mode)
+        self.assertIn("Mixed-tier work takes the highest applicable tier", mode)
+        self.assertIn("ambiguous or conflicting signals escalate", mode)
+        self.assertIn("move-plus-edit work is not low risk", mode)
+        self.assertIn("Documentation containing executable configuration", mode)
         self.assertIn("round-five PLAN_REVISE halts before Executor", mode)
         self.assertIn("NOT_ADVISOR_APPROVED", mode)
         self.assertIn("Planner failure permits the root to take over", mode)
@@ -386,6 +390,45 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
         self.assertIn("reconcile every IMPL finding", usage)
 
+    def test_executor_preflight_requires_current_spawn_schema(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        advisor = {"kind": "model", "model": "gpt-5.6-terra", "effort": "high"}
+        mode, usage = NATIVE.build_policy(executor, None, advisor)
+
+        self.assertLess(
+            mode.index("perform the Executor preflight first"),
+            mode.index("block the Advisor call"),
+        )
+        self.assertIn("available model overrides", mode)
+        self.assertIn("accepted agent types", mode)
+        self.assertIn("Only current-task spawn-schema exposure passes", mode)
+        self.assertIn("Static status, a role file", mode)
+        self.assertIn("prior task's acceptance", mode)
+        self.assertIn("run the Executor preflight first", usage)
+
+    def test_risk_tiering_escalates_mixed_and_ambiguous_work(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        advisor = {"kind": "model", "model": "gpt-5.6-terra", "effort": "high"}
+        mode, _ = NATIVE.build_policy(executor, None, advisor)
+
+        self.assertIn("Mixed-tier work takes the highest applicable tier", mode)
+        self.assertIn("ambiguous or conflicting signals escalate", mode)
+        self.assertIn("move-plus-edit work is not low risk", mode)
+        self.assertIn("Documentation containing executable configuration", mode)
+
+    def test_advisor_skip_is_explicit_current_task_only(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        mode, _ = NATIVE.build_policy(executor, None, None)
+
+        self.assertIn("requires an Advisor review", mode)
+        self.assertIn("explicitly authorizes it for the current task", mode)
+        self.assertIn("Optional low- or medium-risk omission is not a skip", mode)
+        self.assertIn("Never infer a required-review skip from cost preferences", mode)
+        self.assertIn("previous task", mode)
+        self.assertIn("skip that covers only one Advisor gate", mode)
+        self.assertIn("covering both plan and implementation Advisor review", mode)
+        self.assertIn("Direct verification, the fresh verifier, autoreview", mode)
+
     def test_fable_advisor_policy_gates_completion_on_implementation_review(
         self,
     ) -> None:
@@ -411,7 +454,18 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("a rejected finding is never silently ignored", mode)
         self.assertIn("Advisor approval never replaces direct evidence", mode)
         self.assertIn("Before spending an Advisor call", mode)
+        self.assertLess(
+            mode.index("perform the Executor preflight first"),
+            mode.index("block the Advisor call"),
+        )
+        self.assertIn("available model overrides", mode)
+        self.assertIn("accepted agent types", mode)
+        self.assertIn("prior task's acceptance", mode)
         self.assertIn("does not prove route acceptance", mode)
+        self.assertIn("explicitly authorizes it for the current task", mode)
+        self.assertIn("Optional low- or medium-risk omission is not a skip", mode)
+        self.assertIn("skip that covers only one Advisor gate", mode)
+        self.assertIn("disclose that skip in the final report", mode)
         self.assertIn("skip implementation review", mode)
         self.assertLess(
             mode.index("When executor delegation"),
@@ -426,7 +480,10 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("Fable in both seats", usage)
         self.assertIn("If you are a spawned child, do not call this tool", usage)
         self.assertIn("Before costly planning review", usage)
-        self.assertIn("Static status and role files are not route-acceptance proof", usage)
+        self.assertIn("run the Executor preflight first", usage)
+        self.assertIn("available model overrides", usage)
+        self.assertIn("accepted agent types", usage)
+        self.assertIn("block the Advisor call", usage)
         self.assertNotIn("tool_namespace", mode + usage)
         self.assertNotIn("enabled = true", mode + usage)
 

@@ -282,12 +282,24 @@ After spawning, use the tool result or client metadata to confirm the accepted r
 Tool acceptance proves the requested route was valid and accepted, not necessarily that the client exposes post-start runtime identity. Child prose claiming a model name is not proof. If an exact route fails, report it to the root. An unavailable configured Planner or Advisor halts before Executor work unless the user explicitly made that seat best-effort for the current task; apply the bounded degradation rules below and disclose it. An unavailable Executor may leave work with the root only when the user did not require delegation or that Executor route. Never describe an unavailable route as successful.
 
 When a task is expected to delegate implementation, check the current spawn-tool
-schema for the exact configured Executor route before spending an Advisor call.
-Static status, client compatibility, and an installed role file do not prove
-route acceptance. If the route is absent, disclose it immediately; keep work
-with the root only when delegation was optional, otherwise start a fresh task
-after correcting or loading the route. Never discover this only after planning
-and review spend.
+schema before spending an Advisor call. The exact configured direct model must
+appear in the current tool's available model overrides, or the exact configured
+custom role must appear in its accepted agent types. Only current-task schema
+exposure passes. Static status, client compatibility, an installed role file,
+prior-task acceptance, or prose claiming availability does not prove route
+acceptance. If the route is absent, block the Advisor call and disclose it
+immediately; keep work with the root only when delegation was optional,
+otherwise start a fresh task after correcting or loading the route. Never
+discover this only after planning and review spend.
+
+When the risk policy requires an Advisor review, a skip is valid only when the
+user explicitly authorizes it for the current task. Optional low- or
+medium-risk omission is not a skip and needs no extra authorization. Never
+infer a required-review skip from a cost preference, global setting, previous
+task, or a skip covering only one gate. A no-Advisor high-risk task requires an
+explicit current-task skip covering both plan and implementation Advisor
+review; disclose it in the final report. Direct verification, the fresh
+verifier, autoreview, and all other gates remain mandatory.
 
 ## Planner and Advisor workflow
 
@@ -300,6 +312,12 @@ Advisor is optional for low- and medium-risk work. If none is configured, the ro
 - **High risk:** authentication, credentials, secrets, security boundaries, migrations, persistent state, databases, deployments, production configuration, destructive or irreversible changes, workflows or state machines, concurrency, broad architecture, unclear acceptance criteria, or overlapping multi-agent ownership. When an Advisor is configured, require Advisor plan review, fresh verification, and post-verification implementation review. Without an Advisor, halt before implementation unless the user explicitly skips that gate for the current task.
 
 Evidence may raise the tier at any time. Stop and apply the stronger gates when it does; never lower a tier merely to save time or tokens.
+
+Mixed-tier work takes the highest applicable tier. Ambiguous or conflicting
+signals escalate rather than defaulting low. Verify move-only claims against
+the actual diff; move-plus-edit work is not low risk. Documentation containing
+executable configuration, scripts, migrations, or operational instructions
+inherits the risk of that content.
 
 For medium-risk work that warrants planning review and for every high-risk plan with an Advisor, use this bounded approval loop:
 

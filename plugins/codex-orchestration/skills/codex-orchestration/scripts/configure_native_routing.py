@@ -992,8 +992,12 @@ def build_policy(
         "destructive or irreversible changes, workflows or state machines, "
         "concurrency, broad architecture, unclear acceptance criteria, or overlapping "
         f"multi-agent ownership; {high_risk_route}. When evidence raises the tier, "
-        "stop and apply the stronger gates; never lower a tier merely to save time or "
-        "tokens."
+        "stop and apply the stronger gates. Mixed-tier work takes the highest applicable "
+        "tier; ambiguous or conflicting signals escalate rather than defaulting low. "
+        "A move-only claim must match the inspected diff: move-plus-edit work is not low "
+        "risk. Documentation containing executable configuration, scripts, migrations, "
+        "or operational instructions inherits the risk of that content. Never lower a "
+        "tier merely to save time or tokens."
     )
     advisor_mode = (
         "For medium-risk work with material planning ambiguity and for every high-risk "
@@ -1061,9 +1065,11 @@ On PLAN_REVISE, record the latest finding IDs before revision. After the Planner
 
 When executor delegation materially improves speed, cost, quality, or context isolation, use only the configured executor route. Give each executor one bounded, self-contained packet with objective, relevant facts, constraints, owned files or read-only scope, dependencies, acceptance criteria, verification, and handoff format. Inspect every handoff, integrate it, and run final checks yourself.
 
-Before spending an Advisor call on a plan that depends on delegation, confirm the exact configured Executor route is present in the current task's spawn-tool schema. Static status, a role file, or compatible client metadata does not prove route acceptance. If the route is absent, disclose it before review spend and either keep implementation with the root when delegation was optional or start a fresh task after correcting or loading the route; never substitute another model silently.
+Before spending an Advisor call on a plan that depends on delegation, perform the Executor preflight first. Confirm the exact configured direct model appears in the current spawn tool's available model overrides, or that the exact configured custom role appears in its accepted agent types. Only current-task spawn-schema exposure passes. Static status, a role file, compatible client metadata, a prior task's acceptance, or prose claiming availability does not prove route acceptance. If the exact route is absent, block the Advisor call, disclose the failure before review spend, and either keep implementation with the root when delegation was optional or start a fresh task after correcting or loading the route; never substitute another model silently.
 {implementation_review_mode}
 Explicit user instructions win, including no-subagents and task-local seat overrides. Persistent and task-local Planner and Advisor routes must remain distinct: reject the same direct model ID, the same custom-agent name, or Fable in both seats. This policy does not create or change a Goal, weaken approvals, alter permissions, or force a worker count.
+
+When the risk policy requires an Advisor review, a skip is valid only when the user explicitly authorizes it for the current task. Optional low- or medium-risk omission is not a skip and needs no extra authorization. Never infer a required-review skip from cost preferences, a global setting, a previous task, or a skip that covers only one Advisor gate. A no-Advisor high-risk task requires an explicit current-task skip covering both plan and implementation Advisor review; disclose that skip in the final report. Direct verification, the fresh verifier, autoreview, and all other gates remain mandatory.
 
 Planner and Advisor are policy-isolated, root-directed seats: they cannot contact each other or Executors, spawn descendants, edit files, execute work, or release Executor. They return only to the root. Fable MCP requests do not carry caller identity, so caller isolation is instruction-enforced even though the bridge itself disables tools and persistence. If you are a spawned child, stay inside the supplied packet, report only to the root, never call planning tools, and never spawn descendants. An Executor never redesigns the root plan or contacts Planner or Advisor.
 """
@@ -1128,7 +1134,7 @@ For delegated executor work, call this tool with {_spawn_route(executor)}, fork_
 
 Never use fork_turns = "all" with model, reasoning_effort, or agent_type: a full-history fork inherits the root route and rejects those overrides. Never silently substitute the root model when an exact child route is unavailable. Report the unavailable route to the root. A user's explicit current-task model, effort, agent, or no-subagents instruction overrides this saved default, but a task-local Planner and Advisor must still be distinct: reject the same direct model ID, the same custom-agent name, or Fable in both seats.
 
-Before costly planning review for delegation-dependent work, verify the exact configured Executor route is exposed by the current spawn tool. Static status and role files are not route-acceptance proof. If it is absent, disclose that before review spend; keep work with the root only when delegation was optional, otherwise start a fresh task after the route is loaded.
+Before costly planning review for delegation-dependent work, run the Executor preflight first. The exact configured direct model must appear in the current spawn tool's available model overrides, or the exact configured custom role must appear in its accepted agent types. Static status, role files, compatible-client metadata, prior-task acceptance, and prose are not route-acceptance proof. If the exact route is absent, block the Advisor call and disclose that before review spend; keep work with the root only when delegation was optional, otherwise start a fresh task after the route is loaded.
 
 If you are a spawned child, do not call this tool or create descendants. Finish only your assigned packet and return to the root.
 """
