@@ -281,11 +281,27 @@ After spawning, use the tool result or client metadata to confirm the accepted r
 
 Tool acceptance proves the requested route was valid and accepted, not necessarily that the client exposes post-start runtime identity. Child prose claiming a model name is not proof. If an exact route fails, report it to the root. An unavailable configured Planner or Advisor halts before Executor work unless the user explicitly made that seat best-effort for the current task; apply the bounded degradation rules below and disclose it. An unavailable Executor may leave work with the root only when the user did not require delegation or that Executor route. Never describe an unavailable route as successful.
 
+When a task is expected to delegate implementation, check the current spawn-tool
+schema for the exact configured Executor route before spending an Advisor call.
+Static status, client compatibility, and an installed role file do not prove
+route acceptance. If the route is absent, disclose it immediately; keep work
+with the root only when delegation was optional, otherwise start a fresh task
+after correcting or loading the route. Never discover this only after planning
+and review spend.
+
 ## Planner and Advisor workflow
 
 Planner is optional. When no Planner route is configured, the root creates and revises the plan. When configured, send the Planner one self-contained packet containing user intent, acceptance criteria, repository facts, constraints, proposed executor slices, risks, and verification. Require `PLAN_DRAFT`. Planner and Advisor report only to the root. They never edit, execute, spawn, contact one another, contact Executors, or release Executor work.
 
-Advisor is optional. If none is configured, the root validates the Planner's draft and may continue. For a non-trivial plan with an Advisor, use this bounded approval loop:
+Advisor is optional for low- and medium-risk work. If none is configured, the root validates the Planner's draft and may continue under those tiers. High-risk work halts before implementation unless the user explicitly skips Advisor review for the current task or configures an Advisor. That explicit task-local skip covers both plan and implementation Advisor calls; direct verification, the fresh verifier, and autoreview remain mandatory. Before routing review, classify the task from the user's intent, acceptance criteria, task context, and repository evidence:
+
+- **Low risk:** mechanical, documentation-only, move-only, or equivalently bounded work with obvious acceptance criteria and no behavior, state, security, workflow, concurrency, or deployment impact. Skip Advisor and verifier review with a one-line disclosure.
+- **Medium risk:** bounded behavioral work. Use Advisor plan review only when material ambiguity or risk warrants it, and use a verifier only when it probes a materially distinct risk from direct tests and autoreview.
+- **High risk:** authentication, credentials, secrets, security boundaries, migrations, persistent state, databases, deployments, production configuration, destructive or irreversible changes, workflows or state machines, concurrency, broad architecture, unclear acceptance criteria, or overlapping multi-agent ownership. When an Advisor is configured, require Advisor plan review, fresh verification, and post-verification implementation review. Without an Advisor, halt before implementation unless the user explicitly skips that gate for the current task.
+
+Evidence may raise the tier at any time. Stop and apply the stronger gates when it does; never lower a tier merely to save time or tokens.
+
+For medium-risk work that warrants planning review and for every high-risk plan with an Advisor, use this bounded approval loop:
 
 1. Number the canonical plan version and send it to a fresh, stateless Advisor call.
 2. Require `PLAN_APPROVED` or `PLAN_REVISE` as the first-line signal.
@@ -335,7 +351,7 @@ Require a first-line `IMPLEMENTATION_APPROVED` or `IMPLEMENTATION_REVISE` signal
 
 Run at most three implementation-review rounds unless the user explicitly authorizes more. If the final round still returns `IMPLEMENTATION_REVISE`, halt completion: report the unresolved findings, the reconciliation ledger, and the user's choices to override, re-scope, or change a route. Never label the work complete or approved in that state. An unavailable Advisor at this stage is disclosed and the result labeled `NOT_ADVISOR_APPROVED` under the same best-effort rules as plan review.
 
-Implementation review is mandatory by default for work touching authentication, credentials, secrets, security boundaries, migrations, persistent state, databases, deployments, production configuration, destructive or irreversible changes, workflows or state machines, concurrency, broad architecture changes, unclear acceptance criteria, or multi-agent changes with overlapping ownership. The user may say `skip implementation review` or `require implementation review` for the current task; low-risk work outside the mandatory list may skip it with a one-line disclosure. Do not persist a skip.
+When an Advisor is configured, implementation review is mandatory for high-risk work. Medium-risk work uses it only when material residual risk remains after direct verification; low-risk work skips it with a one-line disclosure. Without an Advisor, high-risk work remains blocked unless the user explicitly skips Advisor review for the task, which covers both Advisor gates only. The user may also say `skip implementation review` or `require implementation review` for the current task. Do not persist a skip.
 
 ## Task-local and older-client fallback
 

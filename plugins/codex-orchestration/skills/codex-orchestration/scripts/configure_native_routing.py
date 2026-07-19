@@ -968,9 +968,38 @@ def build_policy(
         if planner is not None
         else "No Planner is configured. The root drafts and revises every plan."
     )
+    high_risk_route = (
+        "it requires Advisor plan review and post-verification implementation "
+        "review plus a fresh verifier"
+        if advisor is not None
+        else "it halts before implementation unless the user explicitly skips "
+        "Advisor review for the current task or configures an Advisor; that explicit "
+        "task-local skip covers both plan and implementation Advisor calls but never "
+        "skips direct verification, a fresh verifier, or autoreview"
+    )
+    risk_mode = (
+        "Before deciding whether independent review is required, the root assigns "
+        "one disclosed task risk tier from the user's intent, acceptance criteria, "
+        "task context, and repository evidence. Low risk is limited "
+        "to mechanical, documentation-only, move-only, or equivalently bounded work "
+        "with obvious acceptance criteria and no behavior, state, security, workflow, "
+        "or deployment impact; it may skip Advisor and verifier review. Medium risk "
+        "covers bounded behavioral work: use Advisor plan review only when material "
+        "ambiguity or risk warrants it, and use a verifier only when it probes a "
+        "materially distinct risk from direct tests and autoreview. High risk includes "
+        "authentication, credentials, secrets, security boundaries, migrations, "
+        "persistent state, databases, deployments, production configuration, "
+        "destructive or irreversible changes, workflows or state machines, "
+        "concurrency, broad architecture, unclear acceptance criteria, or overlapping "
+        f"multi-agent ownership; {high_risk_route}. When evidence raises the tier, "
+        "stop and apply the stronger gates; never lower a tier merely to save time or "
+        "tokens."
+    )
     advisor_mode = (
-        "For a non-trivial plan, the root sends a fresh self-contained review call "
-        "to the configured Advisor before Executor work. PLAN_APPROVED ends review "
+        "For medium-risk work with material planning ambiguity and for every high-risk "
+        "plan, the root sends a fresh self-contained review call to the configured "
+        "Advisor before Executor work. Low-risk work skips this call with a one-line "
+        "disclosure. PLAN_APPROVED ends review "
         "early. PLAN_REVISE returns the canonical current plan and version, the "
         "latest critique, and the cumulative findings ledger to the same configured "
         "Planner route, or to the root when Planner is omitted, then reviews the "
@@ -978,15 +1007,26 @@ def build_policy(
         if advisor is not None
         else (
             "No Advisor is configured. Do not create a review loop; after a configured "
-            "Planner drafts, the root validates the plan before releasing Executor work."
+            "Planner drafts low- or medium-risk work, the root validates the plan before "
+            "releasing Executor work. High-risk work remains halted unless the user "
+            "explicitly skips Advisor review for the current task or configures an Advisor; "
+            "that task-local skip covers both Advisor gates only."
             if planner is not None
-            else "No Advisor is configured. Do not create an Advisor review step."
+            else (
+                "No Advisor is configured. Do not create an Advisor review step. The root "
+                "may validate and continue low- or medium-risk work; high-risk work remains "
+                "halted unless the user explicitly skips Advisor review for the current "
+                "task or configures an Advisor; that task-local skip covers both Advisor "
+                "gates only."
+            )
         )
     )
     implementation_review_mode = (
         "\nAfter Executor handoffs are integrated and the root's own direct "
-        "verification passes, non-trivial or high-risk work receives one "
-        "adversarial implementation review from the Advisor before completion. "
+        "verification passes, every high-risk change receives one adversarial "
+        "implementation review from the Advisor before completion. Medium-risk work "
+        "uses implementation review only when material residual risk remains; "
+        "low-risk work skips it with a one-line disclosure. "
         "The root sends a bounded, self-contained evidence packet: objective, "
         "approved plan and version, planning-finding dispositions, diff or "
         "structured diff summary, changed files, verification results, known "
@@ -1011,6 +1051,8 @@ If you are the root task model, you are the orchestrator. Own intent, planning, 
 
 {planner_mode}
 
+{risk_mode}
+
 {advisor_mode}
 
 The root owns the plan version, cumulative findings ledger, review count, validation, adjudication, and release to Executor. There is no Finalizer seat. For Advisor rounds two through five, send only the current plan and version plus a compact cumulative ledger, not prior transcripts. Ask the Advisor to confirm or contest dispositions without blindly repeating accepted findings. Reject a stale plan version or an invalid or incomplete ledger and halt before Executor.
@@ -1018,6 +1060,8 @@ The root owns the plan version, cumulative findings ledger, review count, valida
 On PLAN_REVISE, record the latest finding IDs before revision. After the Planner returns, validate and merge each INCORPORATED or reasoned REJECTED disposition into the cumulative ledger before another Advisor call. A round-five PLAN_REVISE halts before Executor and produces a non-approval artifact containing the latest plan and version, full ledger, latest findings, and choices available to the user. It must not claim approval. Any required Planner or Advisor route failure also halts before Executor. Only an explicit current-task best-effort instruction changes failure handling: Planner failure permits the root to take over planning for the remaining rounds; Advisor failure may proceed only with the result labeled NOT_ADVISOR_APPROVED. No best-effort setting is persisted.
 
 When executor delegation materially improves speed, cost, quality, or context isolation, use only the configured executor route. Give each executor one bounded, self-contained packet with objective, relevant facts, constraints, owned files or read-only scope, dependencies, acceptance criteria, verification, and handoff format. Inspect every handoff, integrate it, and run final checks yourself.
+
+Before spending an Advisor call on a plan that depends on delegation, confirm the exact configured Executor route is present in the current task's spawn-tool schema. Static status, a role file, or compatible client metadata does not prove route acceptance. If the route is absent, disclose it before review spend and either keep implementation with the root when delegation was optional or start a fresh task after correcting or loading the route; never substitute another model silently.
 {implementation_review_mode}
 Explicit user instructions win, including no-subagents and task-local seat overrides. Persistent and task-local Planner and Advisor routes must remain distinct: reject the same direct model ID, the same custom-agent name, or Fable in both seats. This policy does not create or change a Goal, weaken approvals, alter permissions, or force a worker count.
 
@@ -1075,6 +1119,8 @@ For delegated executor work, call this tool with {_spawn_route(executor)}, fork_
 {provider_guard}
 
 Never use fork_turns = "all" with model, reasoning_effort, or agent_type: a full-history fork inherits the root route and rejects those overrides. Never silently substitute the root model when an exact child route is unavailable. Report the unavailable route to the root. A user's explicit current-task model, effort, agent, or no-subagents instruction overrides this saved default, but a task-local Planner and Advisor must still be distinct: reject the same direct model ID, the same custom-agent name, or Fable in both seats.
+
+Before costly planning review for delegation-dependent work, verify the exact configured Executor route is exposed by the current spawn tool. Static status and role files are not route-acceptance proof. If it is absent, disclose that before review spend; keep work with the root only when delegation was optional, otherwise start a fresh task after the route is loaded.
 
 If you are a spawned child, do not call this tool or create descendants. Finish only your assigned packet and return to the root.
 """

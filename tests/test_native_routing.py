@@ -348,6 +348,12 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("Persistent and task-local Planner and Advisor routes", mode)
         self.assertIn("at most five total Advisor reviews", mode)
         self.assertIn("PLAN_APPROVED ends review early", mode)
+        self.assertIn("user's intent, acceptance criteria", mode)
+        self.assertIn("task context, and repository evidence", mode)
+        self.assertIn("Low risk is limited to mechanical", mode)
+        self.assertIn("Medium risk covers bounded behavioral work", mode)
+        self.assertIn("High risk includes authentication", mode)
+        self.assertIn("never lower a tier merely to save time or tokens", mode)
         self.assertIn("round-five PLAN_REVISE halts before Executor", mode)
         self.assertIn("NOT_ADVISOR_APPROVED", mode)
         self.assertIn("Planner failure permits the root to take over", mode)
@@ -391,6 +397,9 @@ class NativeRoutingTests(unittest.TestCase):
         mode, usage = NATIVE.build_policy(executor, None, advisor)
 
         self.assertIn("adversarial implementation review", mode)
+        self.assertIn("every high-risk change receives one", mode)
+        self.assertIn("Medium-risk work uses implementation review only", mode)
+        self.assertIn("low-risk work skips it with a one-line disclosure", mode)
         self.assertIn("IMPLEMENTATION_APPROVED permits completion", mode)
         self.assertIn(
             "at most three implementation-review rounds unless the user "
@@ -399,6 +408,8 @@ class NativeRoutingTests(unittest.TestCase):
         )
         self.assertIn("a rejected finding is never silently ignored", mode)
         self.assertIn("Advisor approval never replaces direct evidence", mode)
+        self.assertIn("Before spending an Advisor call", mode)
+        self.assertIn("does not prove route acceptance", mode)
         self.assertIn("skip implementation review", mode)
         self.assertLess(
             mode.index("When executor delegation"),
@@ -411,6 +422,8 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("same direct model ID", usage)
         self.assertIn("Fable in both seats", usage)
         self.assertIn("If you are a spawned child, do not call this tool", usage)
+        self.assertIn("Before costly planning review", usage)
+        self.assertIn("Static status and role files are not route-acceptance proof", usage)
         self.assertNotIn("tool_namespace", mode + usage)
         self.assertNotIn("enabled = true", mode + usage)
 
@@ -424,7 +437,12 @@ class NativeRoutingTests(unittest.TestCase):
 
         planner = {"kind": "model", "model": "gpt-5.6-sol", "effort": "xhigh"}
         planner_mode, planner_usage = NATIVE.build_policy(executor, planner, None)
-        self.assertIn("root validates the plan before releasing Executor", planner_mode)
+        self.assertIn("low- or medium-risk work", planner_mode)
+        self.assertIn("halts before implementation", planner_mode)
+        self.assertIn("explicitly skips Advisor review", planner_mode)
+        self.assertIn("covers both plan and implementation Advisor calls", planner_mode)
+        self.assertNotIn("implementation review from the Advisor", planner_mode)
+        self.assertNotIn("review call to the configured Advisor", planner_mode)
         self.assertIn("No advisor route is configured", planner_usage)
         self.assertNotIn("review_plan", planner_usage)
 
