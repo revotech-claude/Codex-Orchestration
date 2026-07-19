@@ -202,6 +202,20 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("`skip implementation review`", SKILL)
         self.assertIn("`require implementation review`", SKILL)
         self.assertIn("Never include credentials, tokens, or account metadata", SKILL)
+        self.assertIn("**Low risk:** mechanical", SKILL)
+        self.assertIn("user's intent, acceptance criteria, task context", SKILL)
+        self.assertIn("**Medium risk:** bounded behavioral work", SKILL)
+        self.assertIn("**High risk:** authentication", SKILL)
+        self.assertIn("High-risk work halts before implementation", SKILL)
+        self.assertIn("explicitly skips Advisor review", SKILL)
+        self.assertIn("covers both plan and implementation Advisor calls", SKILL)
+        self.assertIn("direct verification, the fresh verifier, and autoreview remain mandatory", SKILL)
+        self.assertIn("never lower a tier merely to save time or tokens", SKILL)
+        self.assertIn("Mixed-tier work takes the highest applicable tier", SKILL)
+        self.assertIn("move-plus-edit work is not low risk", SKILL)
+        self.assertIn("Documentation containing", SKILL)
+        self.assertIn("executable configuration", SKILL)
+        self.assertIn("Medium-risk work uses it only when material residual risk remains", SKILL)
 
     def test_direct_routes_are_guarded_to_the_root_provider(self) -> None:
         self.assertIn("Direct model overrides keep the root's provider", SKILL)
@@ -236,6 +250,11 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("only when the client explicitly exposes", SKILL)
         self.assertIn("inherited root — requested child model was not used", SKILL)
         self.assertIn("Child prose claiming a model name is not proof", SKILL)
+        self.assertIn("before spending an Advisor call", SKILL)
+        self.assertIn("available model overrides", SKILL)
+        self.assertIn("accepted agent types", SKILL)
+        self.assertIn("block the Advisor call", SKILL)
+        self.assertIn("does not prove", SKILL)
         self.assertIn("Never report a prompt preference", SKILL)
 
     def test_goal_permissions_and_limits_remain_codex_owned(self) -> None:

@@ -348,6 +348,16 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn("Persistent and task-local Planner and Advisor routes", mode)
         self.assertIn("at most five total Advisor reviews", mode)
         self.assertIn("PLAN_APPROVED ends review early", mode)
+        self.assertIn("user's intent, acceptance criteria", mode)
+        self.assertIn("task context, and repository evidence", mode)
+        self.assertIn("Low risk is limited to mechanical", mode)
+        self.assertIn("Medium risk covers bounded behavioral work", mode)
+        self.assertIn("High risk includes authentication", mode)
+        self.assertIn("Never lower a tier merely to save time or tokens", mode)
+        self.assertIn("Mixed-tier work takes the highest applicable tier", mode)
+        self.assertIn("ambiguous or conflicting signals escalate", mode)
+        self.assertIn("move-plus-edit work is not low risk", mode)
+        self.assertIn("Documentation containing executable configuration", mode)
         self.assertIn("round-five PLAN_REVISE halts before Executor", mode)
         self.assertIn("NOT_ADVISOR_APPROVED", mode)
         self.assertIn("Planner failure permits the root to take over", mode)
@@ -373,10 +383,51 @@ class NativeRoutingTests(unittest.TestCase):
         self.assertIn('model = "gpt-5.6-sol"', usage)
         self.assertGreaterEqual(usage.count('fork_turns = "none"'), 3)
         self.assertIn('Never use fork_turns = "all"', usage)
-        # Implementation review is a Fable-bridge operation; a direct-model
-        # advisor route has no such tool and must not be told to call one.
-        self.assertNotIn("IMPLEMENTATION_APPROVED", mode)
-        self.assertNotIn("review_implementation", usage)
+        self.assertIn("IMPLEMENTATION_APPROVED", mode)
+        self.assertIn("same fresh Advisor route", usage)
+        self.assertIn("When implementation review is required by the risk policy", usage)
+        self.assertIn("not explicitly skipped for the current task", usage)
+        self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
+        self.assertIn("reconcile every IMPL finding", usage)
+
+    def test_executor_preflight_requires_current_spawn_schema(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        advisor = {"kind": "model", "model": "gpt-5.6-terra", "effort": "high"}
+        mode, usage = NATIVE.build_policy(executor, None, advisor)
+
+        self.assertLess(
+            mode.index("perform the Executor preflight first"),
+            mode.index("block the Advisor call"),
+        )
+        self.assertIn("available model overrides", mode)
+        self.assertIn("accepted agent types", mode)
+        self.assertIn("Only current-task spawn-schema exposure passes", mode)
+        self.assertIn("Static status, a role file", mode)
+        self.assertIn("prior task's acceptance", mode)
+        self.assertIn("run the Executor preflight first", usage)
+
+    def test_risk_tiering_escalates_mixed_and_ambiguous_work(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        advisor = {"kind": "model", "model": "gpt-5.6-terra", "effort": "high"}
+        mode, _ = NATIVE.build_policy(executor, None, advisor)
+
+        self.assertIn("Mixed-tier work takes the highest applicable tier", mode)
+        self.assertIn("ambiguous or conflicting signals escalate", mode)
+        self.assertIn("move-plus-edit work is not low risk", mode)
+        self.assertIn("Documentation containing executable configuration", mode)
+
+    def test_advisor_skip_is_explicit_current_task_only(self) -> None:
+        executor = {"kind": "model", "model": "gpt-5.6-luna", "effort": "high"}
+        mode, _ = NATIVE.build_policy(executor, None, None)
+
+        self.assertIn("requires an Advisor review", mode)
+        self.assertIn("explicitly authorizes it for the current task", mode)
+        self.assertIn("Optional low- or medium-risk omission is not a skip", mode)
+        self.assertIn("Never infer a required-review skip from cost preferences", mode)
+        self.assertIn("previous task", mode)
+        self.assertIn("skip that covers only one Advisor gate", mode)
+        self.assertIn("covering both plan and implementation Advisor review", mode)
+        self.assertIn("Direct verification, the fresh verifier, autoreview", mode)
 
     def test_fable_advisor_policy_gates_completion_on_implementation_review(
         self,
@@ -391,6 +442,9 @@ class NativeRoutingTests(unittest.TestCase):
         mode, usage = NATIVE.build_policy(executor, None, advisor)
 
         self.assertIn("adversarial implementation review", mode)
+        self.assertIn("every high-risk change receives one", mode)
+        self.assertIn("Medium-risk work uses implementation review only", mode)
+        self.assertIn("low-risk work skips it with a one-line disclosure", mode)
         self.assertIn("IMPLEMENTATION_APPROVED permits completion", mode)
         self.assertIn(
             "at most three implementation-review rounds unless the user "
@@ -399,18 +453,37 @@ class NativeRoutingTests(unittest.TestCase):
         )
         self.assertIn("a rejected finding is never silently ignored", mode)
         self.assertIn("Advisor approval never replaces direct evidence", mode)
+        self.assertIn("Before spending an Advisor call", mode)
+        self.assertLess(
+            mode.index("perform the Executor preflight first"),
+            mode.index("block the Advisor call"),
+        )
+        self.assertIn("available model overrides", mode)
+        self.assertIn("accepted agent types", mode)
+        self.assertIn("prior task's acceptance", mode)
+        self.assertIn("does not prove route acceptance", mode)
+        self.assertIn("explicitly authorizes it for the current task", mode)
+        self.assertIn("Optional low- or medium-risk omission is not a skip", mode)
+        self.assertIn("skip that covers only one Advisor gate", mode)
+        self.assertIn("disclose that skip in the final report", mode)
         self.assertIn("skip implementation review", mode)
         self.assertLess(
             mode.index("When executor delegation"),
             mode.index("adversarial implementation review"),
         )
         self.assertIn("call `review_implementation` from that server", usage)
+        self.assertIn("When implementation review is required by the risk policy", usage)
         self.assertIn("IMPLEMENTATION_APPROVED or IMPLEMENTATION_REVISE", usage)
         self.assertIn("reconcile every IMPL finding", usage)
         self.assertIn("task-local Planner and Advisor must still be distinct", usage)
         self.assertIn("same direct model ID", usage)
         self.assertIn("Fable in both seats", usage)
         self.assertIn("If you are a spawned child, do not call this tool", usage)
+        self.assertIn("Before costly planning review", usage)
+        self.assertIn("run the Executor preflight first", usage)
+        self.assertIn("available model overrides", usage)
+        self.assertIn("accepted agent types", usage)
+        self.assertIn("block the Advisor call", usage)
         self.assertNotIn("tool_namespace", mode + usage)
         self.assertNotIn("enabled = true", mode + usage)
 
@@ -424,7 +497,12 @@ class NativeRoutingTests(unittest.TestCase):
 
         planner = {"kind": "model", "model": "gpt-5.6-sol", "effort": "xhigh"}
         planner_mode, planner_usage = NATIVE.build_policy(executor, planner, None)
-        self.assertIn("root validates the plan before releasing Executor", planner_mode)
+        self.assertIn("low- or medium-risk work", planner_mode)
+        self.assertIn("halts before implementation", planner_mode)
+        self.assertIn("explicitly skips Advisor review", planner_mode)
+        self.assertIn("covers both plan and implementation Advisor calls", planner_mode)
+        self.assertNotIn("implementation review from the Advisor", planner_mode)
+        self.assertNotIn("review call to the configured Advisor", planner_mode)
         self.assertIn("No advisor route is configured", planner_usage)
         self.assertNotIn("review_plan", planner_usage)
 
